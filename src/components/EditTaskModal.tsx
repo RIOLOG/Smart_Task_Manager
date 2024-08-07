@@ -1,12 +1,8 @@
-
-
-
-
-
 'use client';
 
 import React, { useState, FormEvent } from 'react';
-
+import GoogleMapComponent from './GoogleMapComponent'; 
+import Modal from './Modal';
 interface Task {
   id: string;
   title: string;
@@ -25,6 +21,7 @@ interface EditTaskModalProps {
 
 const EditTaskModal: React.FC<EditTaskModalProps> = ({ task, onClose, onSave }) => {
   const [formData, setFormData] = useState<Task>(task);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -34,6 +31,17 @@ const EditTaskModal: React.FC<EditTaskModalProps> = ({ task, onClose, onSave }) 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     onSave(formData);
+  };
+
+  const getFormattedAddress = async (lat: number, lng: number) => {
+    const response = await fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+    );
+    const data = await response.json();
+    if (data.results && data.results[0]) {
+      return data.results[0].formatted_address;
+    }
+    return `${lat}, ${lng}`;
   };
 
   return (
@@ -97,16 +105,25 @@ const EditTaskModal: React.FC<EditTaskModalProps> = ({ task, onClose, onSave }) 
           </div>
           <div className="mb-4">
             <label htmlFor="location" className="block text-sm font-medium text-gray-300 mb-1">Location</label>
-            <input
-              type="text"
-              id="location"
-              name="location"
-              value={formData.location}
-              onChange={handleChange}
-              className="w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-yellow-500 focus:border-yellow-500 text-gray-200"
-              required
-              aria-label="Location"
-            />
+            <div className="flex items-center">
+              <input
+                type="text"
+                id="location"
+                name="location"
+                value={formData.location}
+                onChange={handleChange}
+                className="flex-1 bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-yellow-500 focus:border-yellow-500 text-gray-200"
+                required
+                aria-label="Location"
+              />
+              <button
+                onClick={() => setIsModalOpen(true)}
+                type="button"
+                className="ml-4 px-4 py-2 text-white bg-green-500 hover:bg-green-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              >
+                Open Map
+              </button>
+            </div>
           </div>
           <div className="mb-4">
             <label htmlFor="completed" className="block text-sm font-medium text-gray-300 mb-1">Completed</label>
@@ -136,6 +153,17 @@ const EditTaskModal: React.FC<EditTaskModalProps> = ({ task, onClose, onSave }) 
             </button>
           </div>
         </form>
+        {isModalOpen && (
+          <Modal onClose={() => setIsModalOpen(false)}>
+            <GoogleMapComponent
+              onSelectLocation={async (lat, lng) => {
+                const address = await getFormattedAddress(lat, lng);
+                setFormData({ ...formData, location: address });
+                setIsModalOpen(false);
+              }}
+            />
+          </Modal>
+        )}
       </div>
     </div>
   );

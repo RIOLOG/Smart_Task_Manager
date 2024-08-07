@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import React, { useState } from 'react';
@@ -7,6 +5,8 @@ import { useDispatch } from 'react-redux';
 import { addTask, updateTask } from '../redux/tasksSlice';
 import { toast } from 'react-toastify';
 import { Task } from '../types';
+import GoogleMapComponent from './GoogleMapComponent';
+import Modal from './Modal';
 
 interface TaskFormProps {
   existingTask?: Task;
@@ -20,6 +20,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ existingTask }) => {
   const [priority, setPriority] = useState<'high' | 'medium' | 'low'>(existingTask?.priority || 'medium');
   const [location, setLocation] = useState(existingTask?.location || '');
   const [completed, setCompleted] = useState(existingTask?.completed || false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,6 +67,19 @@ const TaskForm: React.FC<TaskFormProps> = ({ existingTask }) => {
       console.error('Error:', error);
       toast.error('Failed to save the task.');
     }
+  };
+
+  const getFormattedAddress = async (lat: number, lng: number) => {
+    console.log("1", lat, lng)
+    const response = await fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+    );
+    const data = await response.json();
+    if (data.results && data.results[0]) {
+      return data.results[0].formatted_address;
+    }
+    console.log("2", data);
+    return `${lat}, ${lng}`;
   };
 
   return (
@@ -123,31 +137,52 @@ const TaskForm: React.FC<TaskFormProps> = ({ existingTask }) => {
         </div>
         <div className="space-y-2">
           <label htmlFor="location" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Location</label>
-          <input
-            type="text"
-            id="location"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
-            required
-          />
+          <div className="flex items-center">
+            <input
+              type="text"
+              id="location"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+              required
+            />
+            <button
+              onClick={() => setIsModalOpen(true)}
+              type="button"
+              className="ml-4 px-4 py-2 text-white bg-green-500 hover:bg-green-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+            >
+              Open Map
+            </button>
+          </div>
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-4">
           <input
             type="checkbox"
             id="completed"
             checked={completed}
             onChange={(e) => setCompleted(e.target.checked)}
-            className="h-4 w-4 text-blue-600 border-gray-300 rounded dark:border-gray-600 dark:bg-gray-900"
+            className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-          <label htmlFor="completed" className="text-sm font-medium text-gray-700 dark:text-gray-300">Completed</label>
+          <label htmlFor="completed" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Completed</label>
         </div>
-        <div className="flex justify-center mt-6">
-          <button type="submit" className="py-2 px-4 bg-blue-600 text-white rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-blue-500 dark:hover:bg-blue-600">
-            {existingTask ? 'Update Task' : 'Add Task'}
-          </button>
-        </div>
+        <button
+          type="submit"
+          className="w-full px-4 py-2 text-white bg-blue-500 hover:bg-blue-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          {existingTask ? 'Update Task' : 'Add Task'}
+        </button>
       </form>
+      {isModalOpen && (
+        <Modal onClose={() => setIsModalOpen(false)}>
+          <GoogleMapComponent
+            onSelectLocation={async (lat, lng) => {
+              const address = await getFormattedAddress(lat, lng);
+              setLocation(address);
+              setIsModalOpen(false);
+            }}
+          />
+        </Modal>
+      )}
     </div>
   );
 };
